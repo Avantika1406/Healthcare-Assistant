@@ -1,0 +1,18 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: HB\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-30 00:00+0000\n"
+"PO-Revision-Date: 2026-01-30 00:00+0000\n"
+"Last-Translator: Avantika <avantika@example.com>\n"
+"Language-Team: Marathi\n"
+"Language: mr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Healthcare Assistant"
+msgstr "आरोग्य सहाय्यक"
+
+msgid "Language"
+msgstr "भाषा"

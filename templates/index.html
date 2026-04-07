@@ -1,0 +1,1215 @@
+{% load i18n %}
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Healthcare Assistant</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <!-- Google Font -->
+
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <!-- Your CSS -->
+  <link rel="stylesheet" href="/static/style.css" />
+
+  <link rel="icon" href="/static/icon.png">
+  </head>
+
+  <body>
+    <!-- ================= SIDEBAR ================= -->
+<div class="sidebar" id="sidebar">
+
+<div class="menu-items">
+
+<a onclick="showHome(); closeMenu();">🏠 Home</a>
+<a onclick="showTool('diet'); closeMenu();">🥗 Diet</a>
+<a onclick="showTool('bmi'); closeMenu();">📊 BMI</a>
+<a onclick="showTool('health'); closeMenu();">💚 Health Score</a>
+<a onclick="showTool('doctor'); closeMenu();">🩺 Doctor</a>
+<a onclick="showTool('settings'); closeMenu();">⚙️ Settings</a>
+
+</div>
+
+<a href="/logout/" class="logout-sidebar">🚪 Logout</a>
+
+</div>
+
+    <div class="sidebar-backdrop" onclick="closeMenu()"></div>
+    
+    <!--------------------BODY-------------------------------->
+    <div class="app-body">
+      <header class="app-header">
+        <button class="hamburger" onclick="toggleMenu(event)" aria-label="Menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <h1>Healthcare Assistant</h1>
+      </header>
+
+      <main class="chat-area" id="healthChat"></main>
+
+      <!-- SEVERITY ALERT -->
+      <div id="severityAlert" class="severity-alert hidden">
+        <div id="severityText"></div>
+
+        <button
+          id="doctorSuggestBtn"
+          class="doctor-suggest-btn hidden"
+          onclick="openDoctorFromAlert()"
+        >
+          🩺 Find nearby doctors
+        </button>
+      </div>
+
+      <div class="health-orb" id="healthOrb">
+        <div class="orb-core"></div>
+      <div class="orb-text">Tap to talk 🤍</div>
+      </div>
+
+      <div class="input-bar" id="healthInputBar">
+<input id="healthInput" placeholder="Ask anything about your health…">        <button onclick="sendHealth()">➤</button>
+      </div>
+
+      <button class="floating-btn" onclick="openMental()">💚</button>
+    </div>
+
+    <!-- ================= SCRIPT ================= -->
+    <script>
+      /* ===== GLOBAL ===== */
+      const sidebar = document.getElementById("sidebar");
+      const chat = document.getElementById("healthChat");
+      const orb = document.getElementById("healthOrb");
+      const inputBar = document.getElementById("healthInputBar");
+      const mentalBox = document.getElementById("mentalBox") || null;
+      const input = document.getElementById("healthInput");
+      const sendBtn = document.getElementById("sendHealthBtn");
+
+      let appMode = "home"; // home | chat | tool
+
+      let healthStarted = false;
+      function getGreeting() {
+        const hour = new Date().getHours();
+        if (hour < 12) return "Good morning 🌅";
+        if (hour < 18) return "Good afternoon ☀️";
+        return "Good evening 🌙";
+      }
+
+      function startWelcome() {
+        // Remove old 
+        //  text if exists
+        const old = document.querySelector(".welcome-container");
+        if (old) old.remove();
+
+        // Small delay = smooth appearance
+        setTimeout(() => {
+          typeWelcomeMessage();
+        }, 300);
+      }
+
+orb.onclick = () => {
+
+  orb.classList.add("hide");
+
+  setTimeout(()=>{
+    orb.style.display = "none";
+    appMode = "chat";
+
+    syncUI();   // ⭐ THIS IS THE FIX
+
+    if (!healthStarted) {
+
+      chat.innerHTML = `
+      <div class="chat-row bot">
+        <div class="chat-bubble bot-bubble">
+          Hi 👋 I’m your Healthcare Assistant.<br>
+          How can I help you today?
+        </div>
+      </div>
+      `;
+
+      chat.scrollTop = 0;
+      healthStarted = true;
+    }
+
+  },400);
+
+};
+
+      //SHOWHOME
+
+function showHome(){
+
+   appMode = "home";
+
+   orb.classList.remove("hide");
+   orb.style.display = "flex";
+
+   chat.innerHTML = "";   // optional reset
+   healthStarted = false;
+
+   syncUI();
+}    
+      /* ===== TOOLS ===== */
+
+      function showTool(tool) {
+        appMode = "tool";
+        currentTool = tool;
+        syncUI();
+
+        if (tool === "bmi") {
+          chat.innerHTML = `
+    <div class="tool-card">
+
+
+  <h2>📊 BMI Calculator</h2>
+  <p>Check your Body Mass Index to understand your health status</p>
+
+  <div class="bmi-inputs">
+      <input id="weight" placeholder="Weight (kg)">
+      <input id="height" placeholder="Height (cm)">
+  </div>
+
+  <button class="bmi-btn" onclick="calculateBMI()">Calculate BMI</button>
+
+  <!-- RESULT -->
+  <div id="bmiResultCard" class="bmi-result-card" style="display:none;">
+      <h1 id="bmiValue">24.6</h1>
+      <p class="bmi-label">BMI</p>
+      <p id="bmiStatus" class="bmi-status">Normal</p>
+      <p id="bmiAdvice" class="bmi-advice"></p>
+  </div>
+
+  <div id="healthTips" class="health-tips"></div>
+  
+</div>
+
+  `;
+          return;
+        }
+
+if (tool === "health") {
+  chat.innerHTML = `
+    <div class="health-card">
+      <h2 class="health-title">💚 Health Score</h2>
+      <p class="health-subtitle">Check your overall health status</p>
+
+      <div class="score-ring">
+        <svg width="140" height="140">
+          <circle cx="70" cy="70" r="60" class="bg"></circle>
+          <circle cx="70" cy="70" r="60" class="progress"></circle>
+        </svg>
+        <div class="score-text" id="ringScore">0</div>
+      </div>
+
+      <div class="health-breakdown">
+        <div class="score-row">
+          <span>BMI</span>
+          <span id="bmiScore"></span>
+        </div>
+        <div class="score-row">
+          <span>Mental</span>
+          <span id="mentalScore"></span>
+        </div>
+        <div class="score-row">
+          <span>Diet</span>
+          <span id="dietScore"></span>
+        </div>
+        <div class="score-row">
+          <span>Consistency</span>
+          <span id="consistencyScore"></span>
+        </div>
+      </div>
+
+      <p class="health-status" id="scoreStatus"></p>
+    </div>
+  `;
+
+  // ⭐ LOAD DATA AFTER UI RENDER
+  setTimeout(loadHealthScore, 100);
+
+  return;
+}
+     
+  if (tool === "diet") {
+    chat.innerHTML = `
+    <div class="diet-card">
+
+      <h2 class="diet-title">🥗 Diet Assistant</h2>
+      <p class="diet-subtitle">Ask anything related to food & diet</p>
+
+      <div class="diet-chat" id="dietChat">
+        <div class="msg ai">
+          Hello 👋 I can help create healthy vegetarian meal plans.<br><br>
+          Tell me your goal — weight loss, muscle gain, or general health?
+        </div>
+      </div>
+
+      <div class="diet-input-row">
+        <input id="dietInput" placeholder="Ask about diet...">
+        <button class="diet-send-btn" onclick="sendDietChat()">➤</button>
+      </div>
+
+    </div>
+    `;
+
+    setTimeout(() => {
+      document.getElementById("dietInput")?.focus();
+    }, 100);
+
+    return;
+  }
+
+
+        if (tool === "doctor") {
+          chat.innerHTML = `
+    <div class="tool-card">
+      <h2 class="tool-title">🩺 Doctor Finder</h2>
+      <p class="tool-subtitle">
+        Find nearby hospitals and healthcare services
+      </p>
+
+     <input id="locationInput" class="doctor-input"
+placeholder="Enter your area or city">
+
+      <button class="doctor-btn" onclick="findHealthcare()">
+        Find Doctors
+      </button>
+
+      <div id="doctorResult" class="doctor-result"></div>
+      <div id="mapContainer" class="doctor-map"></div>
+    </div>
+  `;
+          return;
+        }
+
+        if (tool === "settings") {
+
+chat.innerHTML = `
+
+<div class="settings-container">
+
+<!-- PROFILE -->
+<div class="settings-card">
+
+<div class="settings-header" onclick="toggleSettings('profile')">
+<span>👤 Profile</span>
+<span class="arrow" id="arrow-profile">⌄</span>
+</div>
+
+<div class="settings-content" id="profile">
+
+<div class="profile-form">
+
+<div class="form-row">
+<label>Name</label>
+<input type="text" value="{{ user.username }}" disabled>
+</div>
+
+<div class="form-row">
+<label>Age</label>
+<input id="age" type="number" value="{{ profile.age }}">
+</div>
+
+<div class="form-row">
+<label>Gender</label>
+<select id="gender">
+<option {% if profile.gender == "Female" %}selected{% endif %}>Female</option>
+<option {% if profile.gender == "Male" %}selected{% endif %}>Male</option>
+<option {% if profile.gender == "Other" %}selected{% endif %}>Other</option>
+</select>
+</div>
+
+<div class="form-row">
+<label>Height (cm)</label>
+<input id="height" type="number" value="{{ profile.height }}">
+</div>
+
+<div class="form-row">
+<label>Weight (kg)</label>
+<input id="weight" type="number" value="{{ profile.weight }}">
+</div>
+
+<button class="save-btn" onclick="saveProfile()">Save</button>
+
+</div>
+</div>
+</div>
+
+
+<!-- APP PREFERENCES -->
+<div class="settings-card">
+
+<div class="settings-header" onclick="toggleSettings('preferences')">
+<span>🧠 App Preferences</span>
+<span class="arrow" id="arrow-preferences">⌄</span>
+</div>
+
+<div class="settings-content" id="preferences">
+
+<div class="form-row">
+<label>Language</label>
+
+<select id="appLanguage">
+<option value="en">English</option>
+<option value="hi">Hindi</option>
+<option value="mr">Marathi</option>
+</select>
+
+</div>
+
+<p class="settings-note">
+Preferences apply only to the current session.
+</p>
+
+</div>
+</div>
+
+
+<!-- PRIVACY -->
+<div class="settings-card">
+
+<div class="settings-header" onclick="toggleSettings('privacy')">
+<span>🔒 Privacy</span>
+<span class="arrow" id="arrow-privacy">⌄</span>
+</div>
+
+<div class="settings-content" id="privacy">
+
+<p>
+To ensure user privacy, this application does not store or save any chat history.
+</p>
+
+<p>
+All interactions are processed in real time and are not retained after the session ends.
+</p>
+
+<p>
+No personal or sensitive user data is collected or shared with third parties.
+</p>
+
+</div>
+</div>
+
+
+<!-- LOGOUT -->
+<div class="settings-card">
+
+<div class="settings-header" onclick="toggleSettings('logout')">
+<span>🚪 Logout</span>
+<span class="arrow" id="arrow-logout">⌄</span>
+</div>
+
+<div class="settings-content" id="logout">
+
+<p class="settings-note">
+Leaving already? We'll be right here when you come back 🌸
+</p>
+
+<a href="/logout/" class="logout-btn">Logout</a>
+
+</div>
+</div>
+
+
+</div>
+
+    `;
+        }
+
+       scrollToBottomSmooth();
+      }
+
+      /* ===== DIET ===== */
+
+async function sendDietChat() {
+
+  if (isBotTyping) return;
+
+  const input = document.getElementById("dietInput");
+  const chatBox = document.getElementById("dietChat");
+
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  // ✅ USER MESSAGE
+  chatBox.innerHTML += `<div class="msg user">${msg}</div>`;
+  input.value = "";
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  const greetings = ["hi","hello","hey","hii"];
+
+  // ✅ GREETING RESPONSE (NO API)
+  if (greetings.includes(msg.toLowerCase())) {
+    chatBox.innerHTML += `
+      <div class="msg ai">
+        Hello! 👋 I can help create healthy meal plans.<br><br>
+        Tell me your goal — weight loss, muscle gain, or general health?
+      </div>
+    `;
+    chatBox.scrollTop = chatBox.scrollHeight;
+    return;
+  }
+
+  // 🔒 LOCK
+  lockSend();
+
+  // ⏳ TYPING
+  const typing = document.createElement("div");
+  typing.className = "msg ai typing";
+  typing.innerHTML = "<span></span><span></span><span></span>";
+  chatBox.appendChild(typing);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  try {
+
+    const res = await fetch("/diet-chat/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: msg })
+    });
+
+    const data = await res.json();   // ⭐ IMPORTANT
+    typing.remove();
+
+    // ✅ IF NORMAL TEXT RESPONSE
+    if (!data.breakfast || !data.lunch) {
+      chatBox.innerHTML += `
+        <div class="msg ai">
+          ${data.reply.replace(/\n/g,"<br>")}
+        </div>
+      `;
+    } 
+    else {
+      // ✅ FORMATTED DIET PLAN UI
+      const formatted = formatDietResponse(data.reply || "");
+
+      chatBox.innerHTML += `
+        <div class="msg ai">
+          ${formatted}
+        </div>
+      `;
+    }
+
+    unlockSend();
+
+  } catch (error) {
+
+    typing.remove();
+    unlockSend();
+
+    chatBox.innerHTML += `
+      <div class="msg ai">
+        I can help with diet planning 🤍
+      </div>
+    `;
+  }
+
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+
+      // ================= MENTAL MODAL FIX =================
+      function openMental() {
+        const box = document.getElementById("mentalBox");
+        const chatBox = document.getElementById("mentalChat");
+
+        if (!box || !chatBox) return;
+
+        box.style.display = "flex";
+        box.classList.add("open");
+
+        // welcome only once
+        if (!chatBox.dataset.started) {
+          chatBox.innerHTML = `
+      <div class="msg ai mental-welcome">
+        I’m here with you 🤍<br>
+        You can talk freely. Nothing is judged.
+      </div>
+    `;
+          chatBox.dataset.started = "true";
+        }
+
+        document.getElementById("mentalInput").focus();
+      }
+
+      function closeMental() {
+        const box = document.getElementById("mentalBox");
+        if (!box) return;
+        box.classList.remove("open");
+        box.style.display = "none";
+      }
+      function scrollToBottom() {
+        const chat = document.getElementById("messages");
+        if (!chat) return;
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+     function toggleSettings(id){
+
+const section = document.getElementById(id)
+const arrow = document.getElementById("arrow-"+id)
+
+section.classList.toggle("open")
+
+if(section.classList.contains("open")){
+arrow.style.transform="rotate(180deg)"
+}else{
+arrow.style.transform="rotate(0deg)"
+}
+
+}
+
+      function applySettings(s) {
+        // MODE
+
+        // LANGUAGE (header only for now)
+        const title = document.querySelector("h1");
+        if (s.language === "hi") title.innerText = "स्वास्थ्य सहायक";
+        else if (s.language === "mr") title.innerText = "आरोग्य सहाय्यक";
+        else title.innerText = "Healthcare Assistant";
+      }
+
+      function closeAllSettings() {
+        document.querySelectorAll(".settings-content").forEach((sec) => {
+          sec.style.display = "none";
+        });
+
+        document.querySelectorAll(".arrow").forEach((arr) => {
+          arr.style.transform = "rotate(0deg)";
+        });
+      }
+
+      function toggleScoreDetails() {
+        document.getElementById("scoreDetails").classList.toggle("hidden");
+      }
+
+      const s_name = document.getElementById("s_name");
+      const s_age = document.getElementById("s_age");
+      const s_gender = document.getElementById("s_gender");
+      const s_height = document.getElementById("s_height");
+      const s_weight = document.getElementById("s_weight");
+      if (s_name) {
+        s_name.value = saved.name || "";
+      }
+
+      async function loadWeeklyScore() {
+        const res = await fetch("/health-score/weekly/");
+        const data = await res.json();
+        const canvas = document.getElementById("scoreChart");
+        const ctx = canvas.getContext("2d");
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const max = 100;
+        const stepX = canvas.width / (data.length - 1);
+
+        ctx.beginPath();
+        ctx.strokeStyle = "#9db8a0";
+        ctx.lineWidth = 2;
+
+        data.forEach((d, i) => {
+          const x = i * stepX;
+          const y = canvas.height - (d.score / max) * canvas.height;
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+
+        ctx.stroke();
+      }
+
+      async function loadHealthScore() {
+
+    let bmi = parseFloat(localStorage.getItem("bmiValue"));
+
+if (!bmi || isNaN(bmi)) {
+    bmi = 22; // default healthy BMI
+}
+
+    let bmiScore = 0;
+
+    if (!bmi) bmiScore = 15;
+    else if (bmi >= 18.5 && bmi <= 24.9) bmiScore = 30;
+    else if (bmi >= 25 && bmi <= 29.9) bmiScore = 20;
+    else bmiScore = 10;
+
+    const mentalScore = 20;
+    const dietScore = 15;
+    const consistencyScore = 15;
+
+    const total = bmiScore + mentalScore + dietScore + consistencyScore;
+
+    document.getElementById("ringScore").innerText = total;
+
+   document.getElementById("bmiScore").innerText = bmiScore + "/30";
+document.getElementById("mentalScore").innerText = mentalScore + "/20";
+document.getElementById("dietScore").innerText = dietScore + "/15";
+document.getElementById("consistencyScore").innerText = consistencyScore + "/15";
+
+localStorage.setItem("bmiValue", bmi);
+
+    document.getElementById("scoreStatus").innerText =
+        total >= 75 ? "Doing great 🌿" :
+        total >= 50 ? "Needs balance ⚖️" :
+        "Needs care 🤍";
+
+    animateScoreRing(total);
+}
+
+      function animateScoreRing(score) {
+        const circle = document.querySelector(".progress");
+        const ringText = document.getElementById("ringScore");
+        if (!circle || !ringText) return;
+
+        const radius = 60;
+        const circumference = 2 * Math.PI * radius;
+
+        circle.style.strokeDasharray = circumference;
+        circle.style.strokeDashoffset = circumference;
+
+        const offset = circumference - (score / 100) * circumference;
+
+        setTimeout(() => {
+          circle.style.strokeDashoffset = offset;
+          ringText.innerText = score;
+        }, 100);
+      }
+
+      function syncUI() {
+  const orb = document.getElementById("healthOrb");
+  const chat = document.getElementById("healthChat");
+  const inputBar = document.getElementById("healthInputBar");
+
+  if (appMode === "home") {
+    orb.style.display = "flex";
+    chat.style.display = "none";
+    inputBar.style.display = "none";
+  } else if (appMode === "chat") {
+    orb.style.display = "none";
+    chat.style.display = "flex"; // Changed to flex for better chat alignment
+    inputBar.style.display = "flex";
+  } else if (appMode === "tool") {
+    orb.style.display = "none";
+    chat.style.display = "block";
+    inputBar.style.display = "none";
+  }
+}
+
+      function showSeverityAlert(severity) {
+        const alertBox = document.getElementById("severityAlert");
+        const text = document.getElementById("severityText");
+        const btn = document.getElementById("doctorSuggestBtn");
+
+        if (!alertBox || !text || !btn) return;
+
+        alertBox.classList.remove("hidden");
+        btn.classList.add("hidden");
+
+        if (severity === "mild") {
+          alertBox.className = "severity-alert mild";
+          text.innerText = "This looks mild. Please keep monitoring 🤍";
+        }
+
+        if (severity === "moderate") {
+          alertBox.className = "severity-alert moderate";
+          text.innerText =
+            "Your symptoms may need attention. Please monitor closely.";
+        }
+
+        if (severity === "severe") {
+          alertBox.className = "severity-alert severe";
+          text.innerText =
+            "These symptoms may be serious. Please seek medical help immediately.";
+          btn.classList.remove("hidden");
+        }
+      }
+      function toggleMenu(e) {
+        if (e) e.stopPropagation();
+
+        document.body.classList.toggle("menu-open");
+      }
+      function closeMenu() {
+        document.body.classList.remove("menu-open");
+      }
+
+      function sendHealth() {
+        if (isBotTyping) return; // ⛔ block sending
+        if (appMode !== "chat") return;
+
+        const msg = input.value.trim();
+        if (!msg) return;
+
+        // user bubble
+chat.innerHTML += `
+<div class="chat-row user">
+  <div class="chat-bubble user-bubble">
+    ${msg}
+  </div>
+</div>
+`;        input.value = "";
+        chat.scrollTop = chat.scrollHeight;
+
+        // lock send
+        lockSend();
+
+        // typing indicator
+        const typing = document.createElement("div");
+        typing.className = "msg ai typing";
+        typing.innerHTML = "<span></span><span></span><span></span>";
+        chat.appendChild(typing);
+        chat.scrollTop = chat.scrollHeight;
+
+        fetch("/health-chat/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: msg }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            typing.remove();
+
+chat.innerHTML += `
+<div class="chat-row bot">
+  <div class="chat-bubble bot-bubble">
+    ${data.reply.replace(/\n/g,"<br>")}
+  </div>
+</div>
+`;            chat.scrollTop = chat.scrollHeight;
+            unlockSend(); // ✅ allow next send
+          })
+          .catch(() => {
+            typing.remove();
+            unlockSend();
+            chat.innerHTML += `<div class="msg ai">I’m here 🤍</div>`;
+          });
+      }
+
+      function showTyping() {
+        const typing = document.createElement("div");
+        typing.className = "msg ai typing";
+        typing.id = "typing-indicator";
+        typing.innerHTML = "<span></span><span></span><span></span>";
+        mentalChat.appendChild(typing);
+        mentalChat.scrollTop = mentalChat.scrollHeight;
+      }
+
+      function removeTyping() {
+        const typing = document.getElementById("typing-indicator");
+        if (typing) typing.remove();
+      }
+
+      function lockSend(buttonClass) {
+        isBotTyping = true;
+        const btn = document.querySelector(buttonClass);
+        if (btn) btn.disabled = true;
+      }
+
+      function unlockSend(buttonClass) {
+        isBotTyping = false;
+        const btn = document.querySelector(buttonClass);
+        if (btn) btn.disabled = false;
+      }
+
+      let isBotTyping = false;
+      function lockSend() {
+        isBotTyping = true;
+      }
+
+      function unlockSend() {
+        isBotTyping = false;
+      }
+
+      function editProfile() {
+  document.getElementById("profileView").style.display = "none";
+  document.getElementById("profileEdit").style.display = "block";
+}
+
+function cancelEdit() {
+  document.getElementById("profileEdit").style.display = "none";
+  document.getElementById("profileView").style.display = "block";
+}
+
+function saveProfile(){
+
+const age = document.getElementById("age").value;
+const gender = document.getElementById("gender").value;
+const height = document.getElementById("height").value;
+const weight = document.getElementById("weight").value;
+
+fetch("/update-profile/",{
+method:"POST",
+headers:{
+"Content-Type":"application/x-www-form-urlencoded",
+"X-CSRFToken":"{{ csrf_token }}"
+},
+body:`age=${age}&gender=${gender}&height=${height}&weight=${weight}`
+})
+.then(res => res.json())
+.then(data => {
+
+if(data.status === "ok"){
+alert("Profile saved successfully ✅")
+}
+
+})
+.catch(()=>{
+alert("Error saving profile ❌")
+})
+
+}
+      syncUI();
+
+// MENTAL CHAT SUPPORT//
+async function sendMentalMessage() {
+
+const input = document.getElementById("mentalInput");
+const chatBox = document.getElementById("mentalChat");
+
+const message = input.value.trim();
+if (!message) return;
+
+/* USER MESSAGE */
+chatBox.innerHTML += `<div class="msg user">${message}</div>`;
+input.value = "";
+chatBox.scrollTop = chatBox.scrollHeight;
+
+/* TYPING INDICATOR */
+const typing = document.createElement("div");
+typing.className = "msg ai typing";
+typing.innerHTML = "<span></span><span></span><span></span>";
+
+chatBox.appendChild(typing);
+chatBox.scrollTop = chatBox.scrollHeight;
+
+try {
+
+const response = await fetch("/mental-chat/", {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify({ message: message })
+});
+
+const data = await response.json();
+
+/* REMOVE TYPING */
+typing.remove();
+
+/* FORMAT MESSAGE */
+let reply = data.reply
+.replace(/\n/g,"<br>")
+.replace(/\. /g,".<br><br>");
+
+/* BOT MESSAGE */
+setTimeout(() => {
+chatBox.innerHTML += `<div class="msg ai">${reply}</div>`;
+chatBox.scrollTop = chatBox.scrollHeight;
+}, 400);
+
+} catch (error) {
+
+typing.remove();
+
+chatBox.innerHTML += `<div class="msg ai">I'm here with you 🤍</div>`;
+
+}
+
+chatBox.scrollTop = chatBox.scrollHeight;
+
+}
+
+  
+function closeMenu(){
+document.body.classList.remove("menu-open")
+}
+
+
+function calculateBMI() {
+
+    const weight = parseFloat(document.getElementById("weight").value);
+    const height = parseFloat(document.getElementById("height").value);
+
+    if (!weight || !height) {
+        return;
+    }
+
+    const heightMeters = height / 100;
+    const bmi = weight / (heightMeters * heightMeters);
+
+    let status = "";
+    let advice = "";
+
+    if (bmi < 18.5) {
+        status = "Underweight";
+        advice = "You may need to increase your calorie intake and maintain a balanced diet.";
+    }
+    else if (bmi < 24.9) {
+        status = "Normal";
+        advice = "Great! Your BMI is in a healthy range. Keep maintaining your lifestyle 🌿";
+    }
+    else if (bmi < 29.9) {
+        status = "Overweight";
+        advice = "Consider regular exercise and a balanced diet to maintain a healthy weight.";
+    }
+    else {
+        status = "Obese";
+        advice = "It is recommended to consult a healthcare professional for guidance.";
+    }
+
+    let tips = "";
+
+if (bmi < 18.5) {
+tips = `
+<ul>
+<li>Increase calorie intake</li>
+<li>Add protein-rich foods</li>
+<li>Eat 5–6 small meals daily</li>
+<li>Include healthy fats</li>
+</ul>`;
+}
+
+else if (bmi < 24.9) {
+tips = `
+<ul>
+<li>Maintain balanced meals</li>
+<li>Drink 2–3 liters of water</li>
+<li>Exercise regularly</li>
+<li>Sleep 7–8 hours daily</li>
+</ul>`;
+}
+
+else if (bmi < 29.9) {
+tips = `
+<ul>
+<li>Reduce sugary foods</li>
+<li>Add daily walking</li>
+<li>Increase fruits & vegetables</li>
+<li>Avoid junk food</li>
+</ul>`;
+}
+
+else {
+tips = `
+<ul>
+<li>Consult a healthcare professional</li>
+<li>Start light exercise</li>
+<li>Follow structured diet plan</li>
+<li>Monitor weight regularly</li>
+</ul>`;
+}
+
+document.getElementById("healthTips").innerHTML =
+`<h3>💡 Smart Health Tips</h3>${tips}`;
+
+
+    localStorage.setItem("bmiValue", bmi);
+
+    document.getElementById("bmiValue").innerText = bmi.toFixed(1);
+    document.getElementById("bmiStatus").innerText = status;
+    document.getElementById("bmiAdvice").innerText = advice;
+
+    document.getElementById("bmiResultCard").style.display = "block";
+}
+
+
+let touchStartX = 0
+let touchEndX = 0
+
+document.addEventListener("touchstart", e=>{
+touchStartX = e.changedTouches[0].screenX
+})
+
+document.addEventListener("touchend", e=>{
+touchEndX = e.changedTouches[0].screenX
+handleSwipe()
+})
+
+function handleSwipe(){
+
+// swipe left → close menu
+if(touchStartX - touchEndX > 70){
+closeMenu()
+}
+
+// swipe right → open menu
+if(touchEndX - touchStartX > 70){
+document.body.classList.add("menu-open")
+}
+
+}
+
+function detectDevice() {
+
+const width = window.innerWidth;
+
+if (width < 600) return "mobile";
+if (width < 900) return "tablet";
+
+return "desktop";
+
+}
+
+function autoResize(){
+
+const vh = window.innerHeight * 0.01;
+document.documentElement.style.setProperty('--vh', `${vh}px`);
+
+}
+
+window.addEventListener("resize", autoResize);
+autoResize();
+
+
+function findHealthcare(){
+
+  const location = document.getElementById("locationInput").value.trim();
+  const result = document.getElementById("doctorResult");
+  const map = document.getElementById("mapContainer");
+
+  if(!location){
+    result.innerHTML = "Please enter a location.";
+    return;
+  }
+
+  // hospital list
+  result.innerHTML = `
+  <h3>Nearby Healthcare Services</h3>
+
+  <div class="doctor-card">
+  🏥 Government Medical College Hospital<br>
+  📍 ${location}<br>
+  📞 Emergency: 108
+  </div>
+
+  <div class="doctor-card">
+  🏥 Apollo Hospital<br>
+  📍 ${location}<br>
+  📞 +91 9876543210
+  </div>
+
+  <div class="doctor-card">
+  🏥 City Care Multispeciality<br>
+  📍 ${location}<br>
+  📞 +91 9123456780
+  </div>
+  `;
+
+  // google map
+  map.innerHTML = `
+  <iframe
+    width="100%"
+    height="300"
+    style="border:0;border-radius:14px;margin-top:12px"
+    loading="lazy"
+    allowfullscreen
+    src="https://maps.google.com/maps?q=${location}+hospital&output=embed">
+  </iframe>
+  `;
+}
+
+
+document.addEventListener("keydown", function(e){
+
+  if(e.key !== "Enter") return;
+
+  const active = document.activeElement;
+
+  if(active.id === "healthInput"){
+    e.preventDefault();
+    sendHealth();
+  }
+
+  if(active.id === "dietInput"){
+    e.preventDefault();
+    sendDietChat();
+  }
+
+  if(active.id === "mentalInput"){
+    e.preventDefault();
+    sendMentalMessage();
+  }
+
+  if(active.id === "locationInput"){
+    e.preventDefault();
+    findHealthcare();
+  }
+
+});
+
+function scrollToBottomSmooth() {
+  requestAnimationFrame(() => {
+    chat.scrollTop = chat.scrollHeight;
+  });
+}
+
+function formatDietResponse(text) {
+
+  const icons = {
+    "Breakfast": "🍳",
+    "Lunch": "🍛",
+    "Snack": "🍎",
+    "Dinner": "🌙"
+  };
+
+  const sections = text.split(/\n(?=[A-Za-z]+:)/); // split by headings
+
+  let html = `<div class="diet-plan">`;
+
+  sections.forEach(section => {
+
+    const lines = section.split("\n").filter(l => l.trim() !== "");
+
+    const title = lines[0].replace(":", "").trim();
+    const items = lines.slice(1);
+
+    html += `
+      <div class="diet-card-item">
+        <h4>${icons[title] || "🥗"} ${title}</h4>
+        <ul>
+          ${items.map(i => `<li>${i.replace("-","").trim()}</li>`).join("")}
+        </ul>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+
+  return html;
+}
+
+
+    </script>
+
+ 
+    
+    <!-- ================= MENTAL MODAL ================= -->
+<div class="mental-overlay" id="mentalBox">
+
+  <div class="mental-window">
+
+    <div class="mental-header">
+      <span>💚 Mental Health Support</span>
+      <button class="mental-close" onclick="closeMental()">✕</button>
+    </div>
+
+    <!-- CHAT AREA -->
+    <div class="mental-chat" id="mentalChat"></div>
+
+    <!-- INPUT AREA -->
+    <div class="mental-input">
+       <input id="mentalInput" placeholder="Talk to me...">
+      
+
+      <button onclick="sendMentalMessage()">➤</button>
+    </div>
+
+  </div>
+
+</div>
+
+
+
+
+  </body>
+</html>
+
